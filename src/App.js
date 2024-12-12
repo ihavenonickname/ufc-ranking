@@ -19,8 +19,12 @@ function App() {
   const [sortType, setSortType] = useState('PEAK');
 
   useEffect(() => {
+    document.title = "UFC Ranking";
+  }, []);
+
+  useEffect(() => {
     (async () => {
-      const response = await fetch('/fights.json');
+      const response = await fetch(`${process.env.PUBLIC_URL}/fights.json`);
       const data = await response.json();
 
       const cleaned = (

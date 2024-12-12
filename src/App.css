@@ -1,0 +1,21 @@
+#slider-k-factor {
+    width: 90%;
+    margin: 0 auto;
+}
+
+#slider-ko-bonus {
+    width: 90%;
+    margin: 0 auto;
+}
+
+@media (min-width: 960px) {
+    #slider-k-factor {
+        width: 30%;
+        margin: 0 auto;
+    }
+
+    #slider-ko-bonus {
+        width: 30%;
+        margin: 0 auto;
+    }
+}

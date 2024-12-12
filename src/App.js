@@ -93,7 +93,7 @@ function App() {
     <div>
       <div>
         <label htmlFor="slider-k-factor">
-          K factor:
+          K factor: {kFactor}
         </label>
         <input
           type="range"
@@ -104,12 +104,11 @@ function App() {
           value={kFactor}
           onChange={x => setKFactor(x.target.value)}
         />
-        <span>{kFactor}</span>
       </div>
 
       <div>
         <label htmlFor="slider-ko-bonus">
-          Kockout/Submisstion bonus:
+          Kockout/Submisstion bonus: {knockoutBonus}%
         </label>
         <input
           type="range"
@@ -120,7 +119,6 @@ function App() {
           value={knockoutBonus}
           onChange={x => setKnockoutBonus(x.target.value)}
         />
-        <span>{knockoutBonus}%</span>
       </div>
 
       <div>

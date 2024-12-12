@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/ufc-ranking/static/css/main.bec7184c.css",
-    "main.js": "/ufc-ranking/static/js/main.67d44277.js",
+    "main.js": "/ufc-ranking/static/js/main.793424f5.js",
     "index.html": "/ufc-ranking/index.html",
     "main.bec7184c.css.map": "/ufc-ranking/static/css/main.bec7184c.css.map",
-    "main.67d44277.js.map": "/ufc-ranking/static/js/main.67d44277.js.map"
+    "main.793424f5.js.map": "/ufc-ranking/static/js/main.793424f5.js.map"
   },
   "entrypoints": [
     "static/css/main.bec7184c.css",
-    "static/js/main.67d44277.js"
+    "static/js/main.793424f5.js"
   ]
 }

@@ -1,13 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 const SORT_TYPES = ['PEAK', 'CURRENT'];
-
-function newRatings(winnerRating, loserRating, bonus, k) {
-  const expectedVictory = 1 / (1 + (Math.pow(10, (loserRating - winnerRating) / 400)));
-  const delta = Math.round(k * (1 - expectedVictory) * (1 + bonus / 100));
-  return [winnerRating + delta, loserRating - delta];
-}
 
 function App() {
   const [fights, setFights] = useState([]);
@@ -17,9 +11,20 @@ function App() {
   const [weight, setWeight] = useState('');
   const [fighters, setFighters] = useState([]);
   const [sortType, setSortType] = useState('PEAK');
+  const rankingProcessorWorkerRef = useRef(null);
 
   useEffect(() => {
     document.title = "UFC Ranking";
+  }, []);
+
+  useEffect(() => {
+    const worker = new Worker(new URL('./rating-processing-worker.js', import.meta.url));
+
+    rankingProcessorWorkerRef.current = worker;
+
+    worker.addEventListener('message', (event) => setFighters(event.data));
+
+    return () => worker.terminate();
   }, []);
 
   useEffect(() => {
@@ -43,48 +48,12 @@ function App() {
   }, [allWeights]);
 
   useEffect(() => {
-    const filteredFights = fights.filter(x => x.weight === weight);
-
-    const ratings = filteredFights.reduce((acc, fight) => {
-      const winnerRating = acc[fight.winner] || { current: 1000, peak: 1000 };
-      const loserRating = acc[fight.loser] || { current: 1000, peak: 1000 };
-
-      const [newWinnerCurrentRating, newLoserCurrentRating] = newRatings(
-        winnerRating.current,
-        loserRating.current,
-        fight.method === 'DECISION' ? 0 : knockoutBonus,
-        kFactor);
-
-      return {
-        ...acc,
-        [fight.winner]: {
-          current: newWinnerCurrentRating,
-          peak: newWinnerCurrentRating > winnerRating.peak
-            ? newWinnerCurrentRating
-            : winnerRating.peak,
-        },
-        [fight.loser]: { ...loserRating, current: newLoserCurrentRating },
-      };
-    }, {});
-
-    const history = filteredFights.reduce((acc, fight) => {
-      const historyWinner = acc[fight.winner] || { wins: 0, losses: 0 };
-      const historyLoser = acc[fight.winner] || { wins: 0, losses: 0 };
-      return {
-        ...acc,
-        [fight.winner]: { ...historyWinner, wins: historyWinner.wins + 1 },
-        [fight.loser]: { ...historyLoser, losses: historyLoser.losses + 1 },
-      }
-    }, {});
-
-    setFighters(
-      Object.entries(ratings)
-        .map(([name, rating]) => ({ name, rating, ...history[name] }))
-        .sort((x, y) =>  sortType === 'PEAK'
-            ? (y.rating.peak - x.rating.peak)
-            : (y.rating.current - x.rating.current)
-        )
-    );
+    rankingProcessorWorkerRef.current.postMessage({
+      kFactor,
+      knockoutBonus,
+      sortType,
+      fights: fights.filter(x => x.weight === weight),
+    });
   }, [fights, weight, kFactor, knockoutBonus, sortType]);
 
   if (fights.length === 0) {

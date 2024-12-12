@@ -1,67 +1,93 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 
-const ALL_FIGHTS = [
-  {
-    winner: 'Gabriel',
-    loser: 'Marcos',
-    method: 'Submission',
-    weightClass: 'Heavyheight',
-  },
-  {
-    winner: 'João',
-    loser: 'Guilherme',
-    method: 'Knockout',
-    weightClass: 'Light Heavyheight',
-  },
-  {
-    winner: 'Gabriel',
-    loser: 'Marcos',
-    method: 'Decision',
-    weightClass: 'Heavyheight',
-  },
-];
+const SORT_TYPES = ['PEAK', 'CURRENT'];
 
-const WEIGHT_CLASSES = [...new Set(ALL_FIGHTS.map(x => x.weightClass))];
+function newRatings(winnerRating, loserRating, bonus, k) {
+  const expectedVictory = 1 / (1 + (Math.pow(10, (loserRating - winnerRating) / 400)));
+  const delta = Math.round(k * (1 - expectedVictory) * (1 + bonus / 100));
+  return [winnerRating + delta, loserRating - delta];
+}
 
 function App() {
+  const [fights, setFights] = useState([]);
+  const [allWeights, setAllWeights] = useState([]);
   const [kFactor, setKFactor] = useState(40);
   const [knockoutBonus, setKnockoutBonus] = useState(0);
-  const [weightClass, setWeightClass] = useState(WEIGHT_CLASSES[0]);
-  const [fights, setFights] = useState([]);
-  const [ratings, setRatings] = useState({});
+  const [weight, setWeight] = useState('');
+  const [fighters, setFighters] = useState([]);
+  const [sortType, setSortType] = useState('PEAK');
 
   useEffect(() => {
-    setFights(ALL_FIGHTS.filter(x => x.weightClass === weightClass));
-  }, [weightClass]);
+    (async () => {
+      const response = await fetch('/fights.json');
+      const data = await response.json();
+
+      const cleaned = (
+        data
+          .filter(x => x.weight !== 'UNKNOWN')
+          .sort((x, y) => new Date(x.date) - new Date(y.date))
+      );
+
+      setFights(cleaned);
+      setAllWeights([...new Set(cleaned.map(x => x.weight))]);
+    })();
+  }, []);
 
   useEffect(() => {
-    const reducer = (acc, fight) => {
-      const winnerRating = acc[fight.winner] || 1000;
-      const loserRating = acc[fight.loser] || 1000;
+    setWeight(allWeights[0]);
+  }, [allWeights]);
 
-      const expectedVictory = 1 / (1 + (Math.pow(10, (loserRating - winnerRating) / 400)));
-      let delta = kFactor * (1 - expectedVictory);
+  useEffect(() => {
+    const filteredFights = fights.filter(x => x.weight === weight);
 
-      if (fight.method === 'Submission' || fight.method === 'Knockout') {
-        delta *= 1 + knockoutBonus / 100;
-      }
+    const ratings = filteredFights.reduce((acc, fight) => {
+      const winnerRating = acc[fight.winner] || { current: 1000, peak: 1000 };
+      const loserRating = acc[fight.loser] || { current: 1000, peak: 1000 };
 
-      delta = Math.round(delta);
+      const [newWinnerCurrentRating, newLoserCurrentRating] = newRatings(
+        winnerRating.current,
+        loserRating.current,
+        fight.method === 'DECISION' ? 0 : knockoutBonus,
+        kFactor);
 
       return {
         ...acc,
-        [fight.winner]: winnerRating + delta,
-        [fight.loser]: loserRating - delta,
+        [fight.winner]: {
+          current: newWinnerCurrentRating,
+          peak: newWinnerCurrentRating > winnerRating.peak
+            ? newWinnerCurrentRating
+            : winnerRating.peak,
+        },
+        [fight.loser]: { ...loserRating, current: newLoserCurrentRating },
       };
-    };
+    }, {});
 
-    setRatings(
-      Object.entries(fights.reduce(reducer, {}))
-        .map(([fighter, rating]) => ({fighter, rating}))
-        .sort((x, y) => y.rating - x.rating)
+    const history = filteredFights.reduce((acc, fight) => {
+      const historyWinner = acc[fight.winner] || { wins: 0, losses: 0 };
+      const historyLoser = acc[fight.winner] || { wins: 0, losses: 0 };
+      return {
+        ...acc,
+        [fight.winner]: { ...historyWinner, wins: historyWinner.wins + 1 },
+        [fight.loser]: { ...historyLoser, losses: historyLoser.losses + 1 },
+      }
+    }, {});
+
+    setFighters(
+      Object.entries(ratings)
+        .map(([name, rating]) => ({ name, rating, ...history[name] }))
+        .sort((x, y) =>  sortType === 'PEAK'
+            ? (y.rating.peak - x.rating.peak)
+            : (y.rating.current - x.rating.current)
+        )
     );
-  }, [fights, kFactor, knockoutBonus]);
+  }, [fights, weight, kFactor, knockoutBonus, sortType]);
+
+  if (fights.length === 0) {
+    return <div>
+      Loading...
+    </div>;
+  }
 
   return (
     <div>
@@ -98,12 +124,31 @@ function App() {
       </div>
 
       <div>
+        <label htmlFor="weight-select">
+          Weight class:
+        </label>
         <select
-          value={weightClass}
-          onChange={ev => setWeightClass(ev.target.value)}
+          id="weight-select"
+          value={weight}
+          onChange={ev => setWeight(ev.target.value)}
         >
           {
-            WEIGHT_CLASSES.map(x => <option key={x} value={x}>{x}</option>)
+            allWeights.map(x => <option key={x} value={x}>{x}</option>)
+          }
+        </select>
+      </div>
+
+      <div>
+        <label htmlFor="sort-type-select">
+          Sort:
+        </label>
+        <select
+          id="sort-type-select"
+          value={sortType}
+          onChange={ev => setSortType(ev.target.value)}
+        >
+          {
+            SORT_TYPES.map(x => <option key={x} value={x}>{x} rating</option>)
           }
         </select>
       </div>
@@ -111,7 +156,20 @@ function App() {
       <div>
         <ol>
           {
-            ratings.map(x => <li>{x.fighter} {x.rating}</li>)
+            fighters.map(x => <li key={x.name}>
+              <div>
+                <label>Name:</label> {x.name}
+              </div>
+              <div>
+                <label>Rating:</label> {x.rating.current} ({x.rating.peak})
+              </div>
+              <div>
+                <label>Wins:</label> {x.wins}
+              </div>
+              <div>
+                <label>Losses:</label> {x.losses}
+              </div>
+            </li>)
           }
         </ol>
       </div>

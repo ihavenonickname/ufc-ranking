@@ -81,7 +81,7 @@ class EventDetailsPageParser(HTMLParser):
                 'winner': self._winners[i],
                 'loser': self._losers[i],
                 'method': self._methods[i],
-                'weight_class': self._weight_classes[i],
+                'weight': self._weight_classes[i],
                 'date': self._date,
             })
 
@@ -115,7 +115,7 @@ def main():
         parser.feed(html)
         fight_history.extend(parser.build_fight_history())
 
-    with open('fight_history.json', 'w') as f:
+    with open('./public/fights.json', 'w') as f:
         json.dump(fight_history, f, indent=2)
 
 if __name__ == '__main__':
